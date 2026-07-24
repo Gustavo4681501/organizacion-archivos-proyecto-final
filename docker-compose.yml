@@ -1,0 +1,111 @@
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openproject
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d openproject"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  openproject:
+    image: openproject/openproject:15
+    container_name: openproject
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      OPENPROJECT_HOST__NAME: "localhost:8091"
+      OPENPROJECT_HTTPS: "false"
+      OPENPROJECT_DEFAULT__LANGUAGE: es
+      OPENPROJECT_SECRET_KEY_BASE: ${OPENPROJECT_SECRET_KEY_BASE}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/openproject
+      OPENPROJECT_EMAIL__DELIVERY__METHOD: "smtp"
+      OPENPROJECT_SMTP__ADDRESS: "smtp.gmail.com"
+      OPENPROJECT_SMTP__PORT: "587"
+      OPENPROJECT_SMTP__DOMAIN: "gmail.com"
+      OPENPROJECT_SMTP__AUTHENTICATION: "plain"
+      OPENPROJECT_SMTP__USER__NAME: ${SMTP_USER_NAME}
+      OPENPROJECT_SMTP__PASSWORD: ${SMTP_PASSWORD}
+      OPENPROJECT_SMTP__ENABLE__STARTTLS__AUTO: "true"
+      OPENPROJECT_NOTIFICATIONS__EMAIL: ${SMTP_USER_NAME}
+    volumes:
+      - openproject_data:/var/openproject/assets
+    networks:
+      - backend
+      - frontend
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_EDITOR_BASE_URL: http://localhost:8092/
+      WEBHOOK_URL: http://localhost:8092/
+      N8N_PROXY_HOPS: "1"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: America/Costa_Rica
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - frontend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    user: root
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost:8093/
+      GF_SERVER_DOMAIN: localhost
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - frontend
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      - openproject
+      - n8n
+      - grafana
+    ports:
+      - "8091:8081"
+      - "8092:8082"
+      - "8093:8083"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend
+
+networks:
+  backend:
+    driver: bridge
+    internal: true
+  frontend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  openproject_data:
+  n8n_data:
+  grafana_data:
