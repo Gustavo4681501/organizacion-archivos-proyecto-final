@@ -1,0 +1,22 @@
+Tareas pendientes
+    SELECT COUNT(*) as value FROM work_packages wp JOIN statuses s ON s.id=wp.status_id JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') AND NOT s.is_closed AND (wp.due_date IS NULL OR wp.due_date >= CURRENT_DATE)
+
+Tareas Atrasadas
+    SELECT COUNT(*) as value FROM work_packages wp JOIN statuses s ON s.id=wp.status_id JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') AND NOT s.is_closed AND wp.due_date < CURRENT_DATE
+
+Tareas Completadas
+    SELECT COUNT(*) as value FROM work_packages wp JOIN statuses s ON s.id=wp.status_id JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') AND s.is_closed
+
+% Avances por Area
+    SELECT p.name AS area, ROUND(AVG(wp.done_ratio)) AS avance FROM work_packages wp JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') GROUP BY p.name ORDER BY p.name
+
+Tareas por situacion
+    SELECT CASE WHEN s.is_closed THEN 'Completada' WHEN wp.due_date < CURRENT_DATE THEN 'Atrasada' ELSE 'Pendiente' END AS estado, COUNT(*) as cantidad FROM work_packages wp JOIN statuses s ON s.id=wp.status_id JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') GROUP BY 1
+
+Detalles de tareas por area
+    SELECT p.name AS "Area", wp.subject AS "Tarea", s.name AS "Estado", wp.due_date AS "Vence", wp.done_ratio AS "Avance", CASE WHEN s.is_closed THEN 'Completada' WHEN wp.due_date < CURRENT_DATE THEN 'Atrasada' ELSE 'Pendiente' END AS "Situacion" FROM work_packages wp JOIN statuses s ON s.id=wp.status_id JOIN projects p ON p.id=wp.project_id WHERE p.identifier IN ('ti','operaciones','comercial','financiero') ORDER BY p.name, wp.due_date
+
+
+N8N 
+filters parameters
+[{"project":{"operator":"=","values":["3","4","5"]}}]
